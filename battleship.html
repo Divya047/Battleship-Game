@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Battleship Game</title>
+  </head>
+  <style>
+    body {
+      background-color: beige;
+    }
+    h2,
+    h3 {
+      display: none;
+    }
+  </style>
+  <body>
+    <h1>Battleship Game</h1>
+    <h1>Instructions</h1>
+    <p>
+      Welcome to the Battleship Game! The objective of the game is to sink all
+      of the computer's ships before the computer sinks all of your ships. You
+      and the computer will take turns firing bombs at each other's boards. If
+      you hit a ship, you will be able to fire again. If you miss, the computer
+      will take its turn. The game ends when all of the computer's ships are
+      sunk or all of your ships are sunk. Good luck!
+    </p>
+    <div id="divbtn">
+      <button style="background-color: green" id="setupShipButton">
+        Setup Ships Position
+      </button>
+      <button
+        style="margin-bottom: 5em; display: none; background-color: green"
+        id="startGameButton"
+      >
+        Start Game
+      </button>
+    </div>
+
+    <div>
+      <div style="display: inline-block; margin-right: 10em">
+        <h2 class="board">Player's Board</h2>
+        <h3 class="board">Ships Sunk: <span id="sunk">0</span></h3>
+        <h3 class="board">Bomb Hits: <span id="hits">0</span></h3>
+        <h3 class="board">Bomb Misses: <span id="misses">0</span></h3>
+        <canvas id="myCanvas" width="500" height="500"></canvas>
+      </div>
+      <div style="display: inline-block">
+        <h2 class="board">Computer's Board</h2>
+        <h3 class="board">Ships Sunk: <span id="cpuSunk">0</span></h3>
+        <h3 class="board">Bomb Hits: <span id="cpuHits">0</span></h3>
+        <h3 class="board">Bomb Misses: <span id="cpuMisses">0</span></h3>
+        <canvas id="cpuCanvas" width="500" height="500"></canvas>
+      </div>
+    </div>
+    <div id="div">
+      <button
+        style="display: none; background-color: green"
+        id="restartGameButton"
+      >
+        Restart Game
+      </button>
+    </div>
+    <div>
+      <h4 id="shipHead" style="visibility: hidden">
+        Ships (Double Click on the ships to rotate them)
+      </h4>
+      <canvas id="ship1" width="100" height="100"></canvas>
+      <canvas id="ship2" width="150" height="150"></canvas>
+      <canvas id="ship3" width="200" height="200"></canvas>
+      <canvas id="ship4" width="250" height="250"></canvas>
+      <canvas id="ship5" width="300" height="300"></canvas>
+    </div>
+  </body>
+  <script src="battleship.js"></script>
+</html>
