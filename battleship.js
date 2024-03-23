@@ -107,25 +107,13 @@ function start() {
     return [Math.floor(x / cellSize), Math.floor(y / cellSize)];
   }
 
-  function handleCanvasClick(event, isCpu = false) {
-    let gridX,
-      gridY,
-      currentShipObject,
-      currentHits,
-      currentCanvas,
-      sunk = 0;
-    if (isCpu) {
-      currentShipObject = shipObject;
-      currentHits = cpuHits;
-      currentCanvas = myCanvas;
-      gridX = Math.floor(Math.random() * 10);
-      gridY = Math.floor(Math.random() * 10);
-    } else {
-      [gridX, gridY] = getCurrentGrid(event, cpuCanvasElement);
-      currentHits = hits;
-      currentShipObject = cpuShipObject;
-      currentCanvas = cpuCanvas;
-    }
+  function handleCanvasClick(event) {
+    let sunk = 0;
+    const [gridX, gridY] = getCurrentGrid(event, cpuCanvasElement);
+    const currentHits = hits;
+    const currentShipObject = cpuShipObject;
+    const currentCanvas = cpuCanvas;
+
     if (
       !currentHits.ship.some((hit) => hit[0] === gridX && hit[1] === gridY) &&
       !currentHits.miss.some((hit) => hit[0] === gridX && hit[1] === gridY)
@@ -139,26 +127,15 @@ function start() {
           cellSize
         );
         currentHits.ship.push([gridX, gridY]);
-        checkIfShipSunk(currentCanvas, currentShipObject, currentHits, isCpu);
+        checkIfShipSunk(currentCanvas, currentShipObject, currentHits, false);
         for (let i = 0; i < Object.keys(currentShipObject).length; i++) {
           if (currentShipObject[`ship${i + 1}`].sunk) {
-            if (isCpu) {
-              sunk++;
-              document.getElementById("cpuSunk").innerHTML = sunk;
-            } else {
-              sunk++;
-              document.getElementById("sunk").innerHTML = sunk;
-            }
+            sunk++;
+            document.getElementById("sunk").innerHTML = sunk;
           }
         }
-        if (isCpu) {
-          cpuHitCount++;
-          document.getElementById("cpuHits").innerHTML = cpuHitCount;
-          setTimeout(() => handleCanvasClick(event, isCpu), 500);
-        } else {
-          myHitCount++;
-          document.getElementById("hits").innerHTML = myHitCount;
-        }
+        myHitCount++;
+        document.getElementById("hits").innerHTML = myHitCount;
         if (win) {
           return;
         }
@@ -171,19 +148,63 @@ function start() {
           cellSize
         );
         currentHits.miss.push([gridX, gridY]);
-        if (!isCpu) {
-          myMissCount++;
-          document.getElementById("misses").innerHTML = myMissCount;
-          myCanvasElement.removeEventListener("click", handleCanvasClick);
-        } else {
-          cpuMissCount++;
-          document.getElementById("cpuMisses").innerHTML = cpuMissCount;
-        }
+        myMissCount++;
+        document.getElementById("misses").innerHTML = myMissCount;
+        setTimeout(() => handleCpuClick(event), 500);
       }
-    } else if (isCpu) {
-      setTimeout(() => handleCanvasClick(event, isCpu), 500);
     } else {
       alert("You already hit this spot!");
+    }
+  }
+
+  function handleCpuClick(event) {
+    let sunk = 0;
+    const currentShipObject = shipObject;
+    const currentHits = cpuHits;
+    const currentCanvas = myCanvas;
+    const gridX = Math.floor(Math.random() * 10);
+    const gridY = Math.floor(Math.random() * 10);
+
+    if (
+      !currentHits.ship.some((hit) => hit[0] === gridX && hit[1] === gridY) &&
+      !currentHits.miss.some((hit) => hit[0] === gridX && hit[1] === gridY)
+    ) {
+      if (isShipHit(currentShipObject, gridX, gridY)) {
+        currentCanvas.fillStyle = "red";
+        currentCanvas.fillRect(
+          gridX * cellSize,
+          gridY * cellSize,
+          cellSize,
+          cellSize
+        );
+        currentHits.ship.push([gridX, gridY]);
+        checkIfShipSunk(currentCanvas, currentShipObject, currentHits, true);
+        for (let i = 0; i < Object.keys(currentShipObject).length; i++) {
+          if (currentShipObject[`ship${i + 1}`].sunk) {
+            sunk++;
+            document.getElementById("cpuSunk").innerHTML = sunk;
+          }
+        }
+        cpuHitCount++;
+        document.getElementById("cpuHits").innerHTML = cpuHitCount;
+        setTimeout(() => handleCpuClick(event), 500);
+        if (win) {
+          return;
+        }
+      } else {
+        currentCanvas.fillStyle = "blue";
+        currentCanvas.fillRect(
+          gridX * cellSize,
+          gridY * cellSize,
+          cellSize,
+          cellSize
+        );
+        currentHits.miss.push([gridX, gridY]);
+        cpuMissCount++;
+        document.getElementById("cpuMisses").innerHTML = cpuMissCount;
+      }
+    } else {
+      setTimeout(() => handleCpuClick(event), 500);
     }
   }
 
