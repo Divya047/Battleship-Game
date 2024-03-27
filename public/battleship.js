@@ -1,27 +1,60 @@
+function blobToJson(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(JSON.parse(reader.result));
+    reader.onerror = reject;
+    reader.readAsText(blob);
+  });
+}
+
 /**
  * Starts the game and initializes event listeners and variables.
  */
-function start() {
+
+function start(ws) {
   // Event listener for setup ships button click
-  const hostGameButton = document.getElementById("hostGameButton");
-  const joinGameButton = document.getElementById("joinGameButton");
-  hostGameButton.addEventListener("click", hostGameButtonClickHandler);
-  joinGameButton.addEventListener("click", joinGameButtonClickHandler);
+  ws.onopen = function open() {
+    // ws.send("something");
+  };
+
+  ws.onmessage = async function incoming(data) {
+    if (typeof data.data !== "string") {
+      const parsedData = await blobToJson(data.data);
+      if (Array.isArray(parsedData)) {
+        handleP2CanvasClick(parsedData);
+      } else {
+        p2ShipObject = parsedData;
+      }
+    } else {
+      console.log(data.data);
+    }
+  };
+
+  ws.onclose = function close() {
+    // alert("Error connecting to the server");
+    // window.close();
+    console.log("disconnected");
+  };
+  ws.onerror = function error(err) {
+    console.log(err);
+  };
+  const setupShipsButton = document.getElementById("setupShipsButton");
+  setupShipsButton.addEventListener("click", setupShipsButtonClickHandler);
   const myCanvasElement = document.getElementById("myCanvas");
-  const cpuCanvasElement = document.getElementById("cpuCanvas");
+  const p2CanvasElement = document.getElementById("p2Canvas");
   const myCanvas = myCanvasElement.getContext("2d");
-  const cpuCanvas = cpuCanvasElement.getContext("2d");
+  const p2Canvas = p2CanvasElement.getContext("2d");
   const ship1 = document.getElementById("ship1");
   const ship2 = document.getElementById("ship2");
   const ship3 = document.getElementById("ship3");
   const ship4 = document.getElementById("ship4");
   const ship5 = document.getElementById("ship5");
-  let cpuHitCount = 0;
-  let cpuMissCount = 0;
+  let p2HitCount = 0;
+  let p2MissCount = 0;
   let myHitCount = 0;
   let myMissCount = 0;
   let win = false;
-  const cpuHits = { ship: [], miss: [] }; // Hit placement
+  const p2Hits = { ship: [], miss: [] }; // Hit placement
   const shipObject = {
     ship1: { id: ship1, initgrid: [[1, 0]] },
     ship2: {
@@ -59,8 +92,7 @@ function start() {
       ],
     },
   };
-  const cpuShipObject = { ...shipObject };
-
+  let p2ShipObject = {};
   let hits = { ship: [], miss: [] }; // Hit placement
   const gridSize = 10;
   const cellSize = myCanvasElement.width / gridSize;
@@ -110,12 +142,12 @@ function start() {
     return [Math.floor(x / cellSize), Math.floor(y / cellSize)];
   }
 
-  function handleCanvasClick(event) {
+  async function handleCanvasClick(event) {
     let sunk = 0;
-    const [gridX, gridY] = getCurrentGrid(event, cpuCanvasElement);
+    const [gridX, gridY] = getCurrentGrid(event, p2CanvasElement);
     const currentHits = hits;
-    const currentShipObject = cpuShipObject;
-    const currentCanvas = cpuCanvas;
+    const currentShipObject = p2ShipObject;
+    const currentCanvas = p2Canvas;
 
     if (
       !currentHits.ship.some((hit) => hit[0] === gridX && hit[1] === gridY) &&
@@ -139,9 +171,6 @@ function start() {
         }
         myHitCount++;
         document.getElementById("hits").innerHTML = myHitCount;
-        if (win) {
-          return;
-        }
       } else {
         currentCanvas.fillStyle = "blue";
         currentCanvas.fillRect(
@@ -153,21 +182,21 @@ function start() {
         currentHits.miss.push([gridX, gridY]);
         myMissCount++;
         document.getElementById("misses").innerHTML = myMissCount;
-        setTimeout(() => handleCpuClick(event), 500);
+        p2CanvasElement.removeEventListener("click", handleCanvasClick);
+        document.getElementById("waiting_2").style.display = "block";
       }
+      ws.send(JSON.stringify([gridX, gridY]));
     } else {
       alert("You already hit this spot!");
     }
   }
 
-  function handleCpuClick(event) {
+  function handleP2CanvasClick(grids) {
     let sunk = 0;
+    const [gridX, gridY] = grids;
+    const currentHits = p2Hits;
     const currentShipObject = shipObject;
-    const currentHits = cpuHits;
     const currentCanvas = myCanvas;
-    const gridX = Math.floor(Math.random() * 10);
-    const gridY = Math.floor(Math.random() * 10);
-
     if (
       !currentHits.ship.some((hit) => hit[0] === gridX && hit[1] === gridY) &&
       !currentHits.miss.some((hit) => hit[0] === gridX && hit[1] === gridY)
@@ -185,12 +214,11 @@ function start() {
         for (let i = 0; i < Object.keys(currentShipObject).length; i++) {
           if (currentShipObject[`ship${i + 1}`].sunk) {
             sunk++;
-            document.getElementById("cpuSunk").innerHTML = sunk;
+            document.getElementById("p2Sunk").innerHTML = sunk;
           }
         }
-        cpuHitCount++;
-        document.getElementById("cpuHits").innerHTML = cpuHitCount;
-        setTimeout(() => handleCpuClick(event), 500);
+        p2HitCount++;
+        document.getElementById("p2Hits").innerHTML = p2HitCount;
         if (win) {
           return;
         }
@@ -203,11 +231,13 @@ function start() {
           cellSize
         );
         currentHits.miss.push([gridX, gridY]);
-        cpuMissCount++;
-        document.getElementById("cpuMisses").innerHTML = cpuMissCount;
+        p2MissCount++;
+        document.getElementById("p2Misses").innerHTML = p2MissCount;
+        p2CanvasElement.addEventListener("click", handleCanvasClick);
+        document.getElementById("waiting_2").style.display = "none";
       }
     } else {
-      setTimeout(() => handleCpuClick(event), 500);
+      alert("You already hit this spot!");
     }
   }
 
@@ -239,7 +269,7 @@ function start() {
         if (sunk) {
           currentShipObject[`ship${i + 1}`].sunk = true;
           if (isCpu) {
-            alert("Cpu sunk my battleship!");
+            alert("Enemy sunk my battleship!");
             canvasColor = "yellow";
           } else {
             alert("You sunk a battleship!");
@@ -271,8 +301,10 @@ function start() {
       }
       const restartButton = document.getElementById("restartGameButton");
       restartButton.style.display = "block";
-      restartButton.addEventListener("click", restart);
-      cpuCanvasElement.removeEventListener("click", handleCanvasClick);
+      restartButton.addEventListener("click", () => {
+        restart(ws);
+      });
+      p2CanvasElement.removeEventListener("click", handleCanvasClick);
     }
   }
 
@@ -293,9 +325,9 @@ function start() {
     if (isDragging) {
       const [gridX, gridY] = getCurrentGrid(event, myCanvasElement);
       if (!shipObject[holdedShip.element.id].isVertical) {
-        addShipsToBoard(gridX, gridY, false, holdedShip.gridX);
+        addShipsToBoard(gridX, gridY, false, holdedShip.gridX, shipObject);
       } else {
-        addShipsToBoard(gridY, gridX, true, holdedShip.gridY);
+        addShipsToBoard(gridY, gridX, true, holdedShip.gridY, shipObject);
       }
       isDragging = false;
     }
@@ -419,48 +451,47 @@ function start() {
     drawShips(clickedShip.initgrid, clickedShip.id);
   }
 
-  // Function to randomize ships on the board
-  function randomizeShips() {
-    for (i = 0; i < Object.keys(cpuShipObject).length; i++) {
-      let isVertical = Math.random() >= 0.5;
-      let x = Math.floor(Math.random() * 10);
-      let y = Math.floor(Math.random() * 10);
-      let ship = [];
-      for (let j = 0; j < i + 1; j++) {
-        if (y + j <= 9 && x + j <= 9) {
-          if (isVertical) {
-            ship.push([x, y + j]);
-          } else {
-            ship.push([x + j, y]);
-          }
-        }
-      }
-      if (!anyShipAround(ship, true) && i + 1 == ship.length) {
-        cpuShipObject[`ship${i + 1}`] = { grid: ship };
-      } else {
-        i--;
-      }
-    }
-  }
-
-  async function hostGameButtonClickHandler() {
+  async function setupShipsButtonClickHandler() {
     const waiting = document.getElementById("waiting");
-    hostGameButton.style.display = "none";
-    hostGameButton.removeEventListener("click", hostGameButtonClickHandler);
-    joinGameButton.style.display = "none";
-    joinGameButton.removeEventListener("click", joinGameButtonClickHandler);
+    setupShipsButton.style.display = "none";
+    setupShipsButton.removeEventListener("click", setupShipsButtonClickHandler);
     try {
-      const res = await fetch("http://localhost:3000/websocket/connections", {
+      const res = await fetch("http://localhost:3000/connections", {
         method: "GET",
       });
       const numberOfConnections = await res.text();
-      if (numberOfConnections > 0) {
+      if (numberOfConnections > 1) {
         waiting.style.display = "none";
-        setupShipsButtonClickHandler();
+        drawBoard(myCanvasElement);
+        const currentShipObject = shipObject;
+        for (const ship in currentShipObject) {
+          drawShips(
+            currentShipObject[ship].initgrid,
+            currentShipObject[ship].id
+          );
+          currentShipObject[ship].id.draggable = true;
+          currentShipObject[ship].id.addEventListener(
+            "mousedown",
+            handleMouseDown
+          );
+          currentShipObject[ship].id.addEventListener(
+            "dblclick",
+            handleDoubleClick
+          );
+          currentShipObject[ship].id.addEventListener(
+            "mouseout",
+            handleMouseOut
+          );
+        }
+        document.getElementById("shipHead").style.visibility = "visible";
+        const startButton = document.getElementById("startGameButton");
+        startButton.style.display = "block";
+        startButton.addEventListener("click", initializeGame);
+        myCanvasElement.addEventListener("mouseenter", handleCanvasEnter);
       } else {
         waiting.style.display = "block";
         setTimeout(() => {
-          hostGameButtonClickHandler();
+          setupShipsButtonClickHandler();
         }, 3000);
       }
     } catch (err) {
@@ -468,88 +499,29 @@ function start() {
     }
   }
 
-  async function joinGameButtonClickHandler() {
-    try {
-      const res = await fetch("http://localhost:3000/websocket/connect", {
-        method: "GET",
-      });
-      if (res.ok) {
-        hostGameButton.style.display = "none";
-        hostGameButton.removeEventListener("click", hostGameButtonClickHandler);
-        joinGameButton.style.display = "none";
-        joinGameButton.removeEventListener("click", joinGameButtonClickHandler);
-        setupShipsButtonClickHandler((isSecondPlayer = true));
-        return;
-      } else {
-        alert("Sorry, the server is full. Try again later.");
-        return;
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  }
-
-  // Function to handle setup ships button click event
-  async function setupShipsButtonClickHandler(isSecondPlayer = false) {
-    drawBoard(myCanvasElement);
-    for (const ship in shipObject) {
-      drawShips(shipObject[ship].initgrid, shipObject[ship].id);
-      shipObject[ship].id.draggable = true;
-      shipObject[ship].id.addEventListener("mousedown", handleMouseDown);
-      shipObject[ship].id.addEventListener("dblclick", handleDoubleClick);
-      shipObject[ship].id.addEventListener("mouseout", handleMouseOut);
-    }
-    document.getElementById("shipHead").style.visibility = "visible";
+  async function initializeGame() {
     const startButton = document.getElementById("startGameButton");
-    startButton.style.display = "block";
-    if (isSecondPlayer) {
-      startButton.addEventListener("click", init2pGame);
+    let allShipBoarded = true;
+    for (const ship in shipObject) {
+      if (shipObject[ship].grid == undefined) {
+        allShipBoarded = false;
+      }
+    }
+    if (allShipBoarded) {
+      document.getElementById("shipHead").style.display = "none";
+      startButton.style.display = "none";
+      const battleshipBoard = document.getElementsByClassName("board");
+      for (let i = 0; i < battleshipBoard.length; i++) {
+        battleshipBoard[i].style.display = "block";
+      }
+      drawBoard(p2CanvasElement);
+      myCanvasElement.removeEventListener("mouseenter", handleCanvasEnter);
+      p2CanvasElement.addEventListener("click", handleCanvasClick);
+      ws.send(JSON.stringify(shipObject));
+      startButton.removeEventListener("click", initializeGame);
     } else {
-      startButton.addEventListener("click", initGame);
+      alert("Please place all ships before starting the game");
     }
-    myCanvasElement.addEventListener("mouseenter", handleCanvasEnter);
-  }
-}
-
-// Function to initialize the 2 player game
-function init2pGame() {
-  const startButton = document.getElementById("startGameButton");
-  startButton.style.display = "none";
-  const battleshipBoard = document.getElementsByClassName("board");
-  for (let i = 0; i < battleshipBoard.length; i++) {
-    battleshipBoard[i].style.display = "block";
-  }
-  drawBoard("cpuCanvas");
-  drawBoard("myCanvas");
-  cpuCanvasElement.addEventListener("click", handleCanvasClick);
-  myCanvasElement.removeEventListener("mouseenter", handleCanvasEnter);
-}
-
-// Function to initialize the game
-function initGame() {
-  const startButton = document.getElementById("startGameButton");
-  startButton.style.display = "none";
-
-  let allShipBoarded = true;
-  for (const ship in shipObject) {
-    if (shipObject[ship].grid == undefined) {
-      allShipBoarded = false;
-    }
-  }
-  if (allShipBoarded) {
-    document.getElementById("shipHead").style.display = "none";
-    startButton.style.display = "none";
-    const battleshipBoard = document.getElementsByClassName("board");
-    for (let i = 0; i < battleshipBoard.length; i++) {
-      battleshipBoard[i].style.display = "block";
-    }
-    drawBoard(cpuCanvasElement);
-    randomizeShips();
-    myCanvasElement.removeEventListener("mouseenter", handleCanvasEnter);
-    cpuCanvasElement.addEventListener("click", handleCanvasClick);
-    startButton.removeEventListener("click", initGame);
-  } else {
-    alert("Please place all ships before starting the game");
   }
 }
 
@@ -560,13 +532,12 @@ function clearCanvas(elementId) {
 }
 
 // Function to restart the game
-function restart() {
-  document.getElementById("hostGameButton").style.display = "block";
-  document.getElementById("joinGameButton").style.display = "block";
+function restart(ws) {
+  document.getElementById("setupShipsButton").style.display = "block";
   document.getElementById("restartGameButton").style.display = "none";
   document.getElementById("shipHead").style.visibility = "hidden";
   clearCanvas("myCanvas");
-  clearCanvas("cpuCanvas");
+  clearCanvas("p2Canvas");
   clearCanvas("ship1");
   clearCanvas("ship2");
   clearCanvas("ship3");
@@ -579,12 +550,16 @@ function restart() {
   document.getElementById("sunk").innerHTML = 0;
   document.getElementById("hits").innerHTML = 0;
   document.getElementById("misses").innerHTML = 0;
-  document.getElementById("cpuSunk").innerHTML = 0;
-  document.getElementById("cpuHits").innerHTML = 0;
-  document.getElementById("cpuMisses").innerHTML = 0;
-  start();
+  document.getElementById("p2Sunk").innerHTML = 0;
+  document.getElementById("p2Hits").innerHTML = 0;
+  document.getElementById("p2Misses").innerHTML = 0;
+  start(ws);
 }
 // Event listener for DOMContentLoaded event
 document.addEventListener("DOMContentLoaded", () => {
-  start();
+  const ws = new WebSocket("ws://localhost:3000");
+  window.addEventListener("unload", function () {
+    if (ws.readyState == WebSocket.OPEN) ws.close();
+  });
+  start(ws);
 });
