@@ -11,22 +11,35 @@
     h3 {
       display: none;
     }
+    #waiting {
+      display: none;
+    }
+    #waiting_2 {
+      display: none;
+    }
   </style>
   <body>
     <h1>Battleship Game</h1>
     <h1>Instructions</h1>
     <p>
       Welcome to the Battleship Game! The objective of the game is to sink all
-      of the computer's ships before the computer sinks all of your ships. You
-      and the computer will take turns firing bombs at each other's boards. If
-      you hit a ship, you will be able to fire again. If you miss, the computer
-      will take its turn. The game ends when all of the computer's ships are
+      of the opponent's ships before the opponent sinks all of your ships. You
+      and the opponent will take turns firing bombs at each other's boards. If
+      you hit a ship, you will be able to fire again. If you miss, the opponent
+      will take its turn. The game ends when all of the opponent's ships are
       sunk or all of your ships are sunk. Good luck!
     </p>
     <div id="divbtn">
-      <button style="background-color: green" id="setupShipButton">
-        Setup Ships Position
+      <button style="background-color: green" id="setupShipsButton">
+        Setup Ships
       </button>
+      <div id="waiting">
+        <img
+          style="height: 50px; width: 50px"
+          src="https://media.tenor.com/I6kN-6X7nhAAAAAj/loading-buffering.gif"
+        />
+        <span> Waiting for other player to join... </span>
+      </div>
       <button
         style="margin-bottom: 5em; display: none; background-color: green"
         id="startGameButton"
@@ -36,19 +49,26 @@
     </div>
 
     <div>
+      <div style="display: inline-block">
+        <div id="waiting_2">
+          <img
+            style="height: 50px; width: 50px"
+            src="https://media.tenor.com/I6kN-6X7nhAAAAAj/loading-buffering.gif"
+          />
+          <h4>Wait for opponent's turn</h4>
+        </div>
+        <h2 class="board">Opponent's Score</h2>
+        <h3 class="board">Ships Sunk: <span id="p2Sunk">0</span></h3>
+        <h3 class="board">Bomb Hits: <span id="p2Hits">0</span></h3>
+        <h3 class="board">Bomb Misses: <span id="p2Misses">0</span></h3>
+        <canvas id="myCanvas" width="500" height="500"></canvas>
+      </div>
       <div style="display: inline-block; margin-right: 10em">
-        <h2 class="board">Player's Board</h2>
+        <h2 class="board">Player's Score</h2>
         <h3 class="board">Ships Sunk: <span id="sunk">0</span></h3>
         <h3 class="board">Bomb Hits: <span id="hits">0</span></h3>
         <h3 class="board">Bomb Misses: <span id="misses">0</span></h3>
-        <canvas id="myCanvas" width="500" height="500"></canvas>
-      </div>
-      <div style="display: inline-block">
-        <h2 class="board">Computer's Board</h2>
-        <h3 class="board">Ships Sunk: <span id="cpuSunk">0</span></h3>
-        <h3 class="board">Bomb Hits: <span id="cpuHits">0</span></h3>
-        <h3 class="board">Bomb Misses: <span id="cpuMisses">0</span></h3>
-        <canvas id="cpuCanvas" width="500" height="500"></canvas>
+        <canvas id="p2Canvas" width="500" height="500"></canvas>
       </div>
     </div>
     <div id="div">

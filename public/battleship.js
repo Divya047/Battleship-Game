@@ -3,8 +3,10 @@
  */
 function start() {
   // Event listener for setup ships button click
-  const setupShipsButton = document.getElementById("setupShipButton");
-  setupShipsButton.addEventListener("click", setupShipsButtonClickHandler);
+  const hostGameButton = document.getElementById("hostGameButton");
+  const joinGameButton = document.getElementById("joinGameButton");
+  hostGameButton.addEventListener("click", hostGameButtonClickHandler);
+  joinGameButton.addEventListener("click", joinGameButtonClickHandler);
   const myCanvasElement = document.getElementById("myCanvas");
   const cpuCanvasElement = document.getElementById("cpuCanvas");
   const myCanvas = myCanvasElement.getContext("2d");
@@ -19,7 +21,6 @@ function start() {
   let myHitCount = 0;
   let myMissCount = 0;
   let win = false;
-  const cpuShipObject = { ship1, ship2, ship3, ship4, ship5 };
   const cpuHits = { ship: [], miss: [] }; // Hit placement
   const shipObject = {
     ship1: { id: ship1, initgrid: [[1, 0]] },
@@ -58,6 +59,8 @@ function start() {
       ],
     },
   };
+  const cpuShipObject = { ...shipObject };
+
   let hits = { ship: [], miss: [] }; // Hit placement
   const gridSize = 10;
   const cellSize = myCanvasElement.width / gridSize;
@@ -299,9 +302,15 @@ function start() {
   }
 
   // Function to add ships to the board
-  function addShipsToBoard(changingGrid, otherGrid, isVertical, holdedGrid) {
+  function addShipsToBoard(
+    changingGrid,
+    otherGrid,
+    isVertical,
+    holdedGrid,
+    currentShipObject
+  ) {
     const holdedShipId = holdedShip.element.id;
-    const holdedShipAllGrid = shipObject[holdedShipId].initgrid;
+    const holdedShipAllGrid = currentShipObject[holdedShipId].initgrid;
     if (
       changingGrid >= 0 &&
       changingGrid <= 9 &&
@@ -317,29 +326,35 @@ function start() {
         changingGrid = changingGrid - 1;
         holdedGrid = holdedGrid - 1;
       }
-      shipObject[holdedShipId].grid = [];
+      currentShipObject[holdedShipId].grid = [];
       if (!isVertical) {
-        shipObject[holdedShipId].grid.push([changingGrid, otherGrid]);
+        currentShipObject[holdedShipId].grid.push([changingGrid, otherGrid]);
       } else {
-        shipObject[holdedShipId].grid.push([otherGrid, changingGrid]);
+        currentShipObject[holdedShipId].grid.push([otherGrid, changingGrid]);
       }
       for (let i = 1; i < holdedShipAllGrid.length; i++) {
         if (!isVertical) {
-          shipObject[holdedShipId].grid.push([changingGrid + i, otherGrid]);
+          currentShipObject[holdedShipId].grid.push([
+            changingGrid + i,
+            otherGrid,
+          ]);
         } else {
-          shipObject[holdedShipId].grid.push([otherGrid, changingGrid + i]);
+          currentShipObject[holdedShipId].grid.push([
+            otherGrid,
+            changingGrid + i,
+          ]);
         }
       }
-      if (anyShipAround(shipObject[holdedShipId].grid)) {
-        shipObject[holdedShipId].grid = null;
+      if (anyShipAround(currentShipObject[holdedShipId].grid)) {
+        currentShipObject[holdedShipId].grid = null;
         return;
       }
       clearCanvas(holdedShipId);
       myCanvas.fillStyle = "black";
-      for (let i = 0; i < shipObject[holdedShipId].grid.length; i++) {
+      for (let i = 0; i < currentShipObject[holdedShipId].grid.length; i++) {
         myCanvas.fillRect(
-          shipObject[holdedShipId].grid[i][0] * cellSize,
-          shipObject[holdedShipId].grid[i][1] * cellSize,
+          currentShipObject[holdedShipId].grid[i][0] * cellSize,
+          currentShipObject[holdedShipId].grid[i][1] * cellSize,
           cellSize,
           cellSize
         );
@@ -428,33 +443,54 @@ function start() {
     }
   }
 
-  // Function to initialize the game
-  function initGame() {
-    const startButton = document.getElementById("startGameButton");
-    let allShipBoarded = true;
-    for (const ship in shipObject) {
-      if (shipObject[ship].grid == undefined) {
-        allShipBoarded = false;
+  async function hostGameButtonClickHandler() {
+    const waiting = document.getElementById("waiting");
+    hostGameButton.style.display = "none";
+    hostGameButton.removeEventListener("click", hostGameButtonClickHandler);
+    joinGameButton.style.display = "none";
+    joinGameButton.removeEventListener("click", joinGameButtonClickHandler);
+    try {
+      const res = await fetch("http://localhost:3000/websocket/connections", {
+        method: "GET",
+      });
+      const numberOfConnections = await res.text();
+      if (numberOfConnections > 0) {
+        waiting.style.display = "none";
+        setupShipsButtonClickHandler();
+      } else {
+        waiting.style.display = "block";
+        setTimeout(() => {
+          hostGameButtonClickHandler();
+        }, 3000);
       }
-    }
-    if (allShipBoarded) {
-      document.getElementById("shipHead").style.display = "none";
-      startButton.style.display = "none";
-      const battleshipBoard = document.getElementsByClassName("board");
-      for (let i = 0; i < battleshipBoard.length; i++) {
-        battleshipBoard[i].style.display = "block";
-      }
-      drawBoard(cpuCanvasElement);
-      randomizeShips();
-      myCanvasElement.removeEventListener("mouseenter", handleCanvasEnter);
-      cpuCanvasElement.addEventListener("click", handleCanvasClick);
-      startButton.removeEventListener("click", initGame);
-    } else {
-      alert("Please place all ships before starting the game");
+    } catch (err) {
+      console.log(err);
     }
   }
+
+  async function joinGameButtonClickHandler() {
+    try {
+      const res = await fetch("http://localhost:3000/websocket/connect", {
+        method: "GET",
+      });
+      if (res.ok) {
+        hostGameButton.style.display = "none";
+        hostGameButton.removeEventListener("click", hostGameButtonClickHandler);
+        joinGameButton.style.display = "none";
+        joinGameButton.removeEventListener("click", joinGameButtonClickHandler);
+        setupShipsButtonClickHandler((isSecondPlayer = true));
+        return;
+      } else {
+        alert("Sorry, the server is full. Try again later.");
+        return;
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
   // Function to handle setup ships button click event
-  function setupShipsButtonClickHandler() {
+  async function setupShipsButtonClickHandler(isSecondPlayer = false) {
     drawBoard(myCanvasElement);
     for (const ship in shipObject) {
       drawShips(shipObject[ship].initgrid, shipObject[ship].id);
@@ -466,10 +502,54 @@ function start() {
     document.getElementById("shipHead").style.visibility = "visible";
     const startButton = document.getElementById("startGameButton");
     startButton.style.display = "block";
-    startButton.addEventListener("click", initGame);
+    if (isSecondPlayer) {
+      startButton.addEventListener("click", init2pGame);
+    } else {
+      startButton.addEventListener("click", initGame);
+    }
     myCanvasElement.addEventListener("mouseenter", handleCanvasEnter);
-    setupShipsButton.style.display = "none";
-    setupShipsButton.removeEventListener("click", setupShipsButtonClickHandler);
+  }
+}
+
+// Function to initialize the 2 player game
+function init2pGame() {
+  const startButton = document.getElementById("startGameButton");
+  startButton.style.display = "none";
+  const battleshipBoard = document.getElementsByClassName("board");
+  for (let i = 0; i < battleshipBoard.length; i++) {
+    battleshipBoard[i].style.display = "block";
+  }
+  drawBoard("cpuCanvas");
+  drawBoard("myCanvas");
+  cpuCanvasElement.addEventListener("click", handleCanvasClick);
+  myCanvasElement.removeEventListener("mouseenter", handleCanvasEnter);
+}
+
+// Function to initialize the game
+function initGame() {
+  const startButton = document.getElementById("startGameButton");
+  startButton.style.display = "none";
+
+  let allShipBoarded = true;
+  for (const ship in shipObject) {
+    if (shipObject[ship].grid == undefined) {
+      allShipBoarded = false;
+    }
+  }
+  if (allShipBoarded) {
+    document.getElementById("shipHead").style.display = "none";
+    startButton.style.display = "none";
+    const battleshipBoard = document.getElementsByClassName("board");
+    for (let i = 0; i < battleshipBoard.length; i++) {
+      battleshipBoard[i].style.display = "block";
+    }
+    drawBoard(cpuCanvasElement);
+    randomizeShips();
+    myCanvasElement.removeEventListener("mouseenter", handleCanvasEnter);
+    cpuCanvasElement.addEventListener("click", handleCanvasClick);
+    startButton.removeEventListener("click", initGame);
+  } else {
+    alert("Please place all ships before starting the game");
   }
 }
 
@@ -481,7 +561,8 @@ function clearCanvas(elementId) {
 
 // Function to restart the game
 function restart() {
-  document.getElementById("setupShipButton").style.display = "block";
+  document.getElementById("hostGameButton").style.display = "block";
+  document.getElementById("joinGameButton").style.display = "block";
   document.getElementById("restartGameButton").style.display = "none";
   document.getElementById("shipHead").style.visibility = "hidden";
   clearCanvas("myCanvas");
