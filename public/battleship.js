@@ -13,10 +13,6 @@ function blobToJson(blob) {
 
 function start(ws) {
   // Event listener for setup ships button click
-  ws.onopen = function open() {
-    // ws.send("something");
-  };
-
   ws.onmessage = async function incoming(data) {
     if (typeof data.data !== "string") {
       const parsedData = await blobToJson(data.data);
@@ -31,8 +27,7 @@ function start(ws) {
   };
 
   ws.onclose = function close() {
-    // alert("Error connecting to the server");
-    // window.close();
+    alert("Error connecting to the server");
     console.log("disconnected");
   };
   ws.onerror = function error(err) {
